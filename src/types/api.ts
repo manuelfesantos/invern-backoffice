@@ -142,88 +142,88 @@ export interface ApiAdminCountryInput {
   currencyCode: string; // 3-letter uppercase currency code
 }
 
-// --- NEW Order Related Types Start ---
+// Based on #/components/schemas/Cart
+export type ApiCart = {
+  id: string;
+  createdAt: string; // date-time
+  lastModifiedAt: string; // date-time
+  isLoggedIn: boolean;
+  products: ApiLineItem[]; // Assuming ApiLineItem is defined or needs definition
+};
 
-// Based on #/components/schemas/AddressInput
-export interface ApiAddressInput {
+// Based on #/components/schemas/LineItem (used in Cart) - Assuming it's similar to ApiProduct with quantity
+export interface ApiLineItem extends ApiProduct {
+  quantity: number;
+}
+
+// Based on #/components/schemas/BaseUser
+export type ApiBaseUser = {
+  id: string;
+  cartId?: string | null; // Assuming cartId is optional
+  email: string;
+  firstName: string;
+  lastName?: string | null;
+  address?: ApiAddress | null; // Assuming ApiAddress is defined or needs definition
+  createdAt: string; // date-time
+  lastModifiedAt: string; // date-time
+  version: number;
+  role: "ADMIN" | "USER";
+  isOauth: boolean;
+  googleUserId?: string | null;
+  isValidated: boolean;
+};
+
+// Based on #/components/schemas/Address (used in BaseUser)
+export interface ApiAddress {
   street: string;
   houseNumber: string;
   apartment?: string | null;
   postalCode: string;
   city: string;
   province?: string | null;
-}
-
-// Based on #/components/schemas/Address
-export interface ApiAddress extends ApiAddressInput {
   country: string; // 2-letter code
 }
 
-// Based on #/components/schemas/UserDetailsInput
-export interface ApiUserDetailsInput {
-  email: string;
-  firstName: string;
-  lastName?: string | null;
+// Based on #/components/schemas/Order
+export interface ApiOrder {
+  id: string;
+  createdAt: string; // date-time
+  lastModifiedAt: string; // date-time
+  products: ApiLineItem[]; // Assuming ApiLineItem is defined
+  address: ApiAddress; // Assuming ApiAddress is defined
+  personalDetails: {
+    // Based on UserDetails schema
+    email: string;
+    firstName: string;
+    lastName?: string | null;
+  };
+  shippingMethod: ApiSelectedShippingMethod; // Assuming ApiSelectedShippingMethod defined
+  payment?: ApiClientPayment | null; // Assuming ApiClientPayment defined
+  shippingTransaction: ApiShippingTransaction; // Assuming ApiShippingTransaction defined
+  userId?: string | null;
+  paymentId?: string | null;
+  stripeId: string;
+  isCanceled?: boolean | null;
 }
 
-// Based on #/components/schemas/UserDetails
-// Note: This is essentially the same as UserDetailsInput in the provided spec
-export type ApiUserDetails = ApiUserDetailsInput;
-
-// Based on #/components/schemas/LineItem
-// Incorporates base product fields directly for simplicity
-export interface ApiLineItem {
-  id: string; // Product ID
+// Based on #/components/schemas/SelectedShippingMethod (used in Order)
+export interface ApiSelectedShippingMethod {
+  id: string;
   name: string;
-  priceInCents: number; // Net price of the product itself
-  stock: number; // Stock *at time of order* or current? Usually snapshot.
-  weight: number;
-  images: ApiImage[];
-  quantity: number;
+  rate: ApiShippingRate; // Assuming ApiShippingRate defined
+  // Add createdAt/lastModifiedAt if they exist in BaseShippingMethod
 }
 
-// Based on #/components/schemas/LineItemError
-export interface ApiLineItemError {
-  message: string;
-  type: "NOT_ENOUGH_STOCK"; // Add other possible error types here
-}
-
-// Based on #/components/schemas/ExtendedLineItem
-export interface ApiExtendedLineItem extends ApiLineItem {
-  netPrice: number; // Total net price for this line item (product price * quantity)
-  grossPrice: number; // Total gross price for this line item (including taxes)
-  taxes: ApiTax[]; // Taxes applicable to this line item with calculated amounts
-  issues?: ApiLineItemError[];
-}
-
-// Based on #/components/schemas/BaseShippingMethod
-export interface ApiBaseShippingMethod {
-  id: string; // UUID
-  name: string;
-}
-
-// Based on #/components/schemas/ShippingRate
+// Based on #/components/schemas/ShippingRate (used in SelectedShippingMethod)
 export interface ApiShippingRate {
   priceInCents: number;
   minWeight: number;
   maxWeight: number;
-  deliveryTime: number; // Business days
-  countryCodes: string[]; // 2-letter codes
+  deliveryTime: number;
+  countryCodes: string[];
 }
 
-// Based on #/components/schemas/SelectedShippingMethod
-export interface ApiSelectedShippingMethod extends ApiBaseShippingMethod {
-  rate: ApiShippingRate;
-}
-
-// Based on #/components/schemas/PaymentMethod
-export interface ApiPaymentMethod {
-  type: "card" | "paypal"; // Add other payment types if supported
-  brand?: string | null;
-  last4?: string | null;
-}
-
-// Based on #/components/schemas/ClientPayment
+// Based on #/components/schemas/ClientPayment (used in Order)
 export interface ApiClientPayment {
   state:
     | "draft"
@@ -232,54 +232,49 @@ export interface ApiClientPayment {
     | "created"
     | "processing"
     | "failed";
-  netAmount?: number | null; // in cents
-  grossAmount: number; // in cents
-  paymentMethod?: ApiPaymentMethod | null;
+  netAmount?: number | null;
+  grossAmount: number;
+  paymentMethod?: {
+    type: "card" | "paypal";
+    brand?: string | null;
+    last4?: string | null;
+  } | null;
 }
 
-// Based on #/components/schemas/ShippingTransaction
+// Based on #/components/schemas/ShippingTransaction (used in Order)
 export interface ApiShippingTransaction {
-  id: string; // UUID
+  id: string;
   status: "processing" | "shipped" | "delivered" | "canceled";
   trackingUrl?: string | null;
+  createdAt: string; // date-time
+  lastModifiedAt: string; // date-time
 }
 
-// Based on #/components/schemas/ClientOrder
-export interface ApiClientOrder {
-  id: string; // Order UUID
-  createdAt: string; // ISO Date string
-  lastModifiedAt: string; // ISO Date string
-  products: ApiLineItem[]; // Uses basic LineItem here
-  address: ApiAddress;
-  personalDetails: ApiUserDetails;
-  shippingMethod: ApiSelectedShippingMethod;
-  payment?: ApiClientPayment | null;
-  shippingTransaction: ApiShippingTransaction;
-  isCanceled: boolean;
+// Based on #/components/schemas/UpdateAdminOrderInput
+export interface ApiUpdateAdminOrderInput {
+  isCanceled?: boolean;
+  // Add other fields defined in the schema if needed, e.g., shippingTransactionId
 }
 
-// Based on #/components/schemas/ExtendedClientOrder
-export interface ApiExtendedClientOrder
-  extends Omit<ApiClientOrder, "products"> {
-  // Re-define products with the extended type
-  products: ApiExtendedLineItem[];
-  // Add fields from ExtendedClientOrder
-  taxes: ApiTax[]; // Aggregated taxes for the whole order
-  currency: ApiClientCurrency;
-  status:
-    | "processing_payment"
-    | "packaging"
-    | "shipping"
-    | "completed"
-    | "canceled"
-    | "error"; // Calculated overall order status
+// Based on #/components/schemas/SecretKeyInput
+export interface ApiSecretKeyInput {
+  secretKey: string;
 }
 
-// Based on #/components/schemas/GetOrderResponse
-export interface GetOrderResponse {
-  message: string;
-  data: {
-    order: ApiExtendedClientOrder;
-    accessToken: string; // User's access token might be refreshed
-  };
+// Specific type for GET /private/stock/{productId} response data
+export interface ApiStockResponse {
+  stock: number;
+}
+
+// Parameter types for endpoints with query params
+export interface ApiAdminListParams {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ApiAdminOrderListParams extends ApiAdminListParams {
+  userId?: string;
+  paymentId?: string;
+  stripeId?: string;
+  shippingTransactionId?: string;
 }

@@ -1,4 +1,3 @@
-// src/components/Sidebar.tsx
 import { Link, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetClose } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area"; // Optional: for many links

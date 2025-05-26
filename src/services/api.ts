@@ -12,7 +12,13 @@ import type {
   ApiAdminCurrency,
   ApiAdminCurrencyInput,
   ApiAdminSuccessResponse,
-  ApiClientOrder,
+  ApiCart,
+  ApiBaseUser,
+  ApiOrder,
+  ApiUpdateAdminOrderInput,
+  ApiSecretKeyInput,
+  ApiAdminListParams,
+  ApiAdminOrderListParams,
 } from "@/types/api";
 
 const API_BASE_URL =
@@ -526,27 +532,310 @@ export async function deleteCurrency(
   }
 }
 
-// --- Fetch User Orders ---
+// --- Carts Admin ---
+
 /**
- * Fetches orders for the currently authenticated user.
- * Corresponds to: GET /public/countries/{countryCode}/orders
- * Assumes countryCode is handled implicitly or globally. Requires user authentication.
+ * Fetches a list of all carts (admin view).
+ * Corresponds to: GET /private/carts
+ * @param params - Optional pagination parameters (page, pageSize).
  */
-export async function fetchOrders(): Promise<ApiClientOrder[]> {
-  // TODO: Determine how countryCode is passed/obtained if needed. Assuming handled globally for now.
-  const countryCode = "PT"; // Placeholder - replace with actual logic if needed
+export async function adminFetchCarts(
+  params?: ApiAdminListParams,
+): Promise<{ count: number; carts: ApiCart[] }> {
+  const url = new URL(`${API_BASE_URL}/private/carts`);
+  if (params?.page) url.searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    url.searchParams.append("pageSize", String(params.pageSize));
+
   try {
-    const response = await fetch(`${API_BASE_URL}/private/orders`, {
-      // Assumes authentication is handled by cookies/headers managed elsewhere
-      // Add authorization headers if using bearer tokens explicitly
-      headers: getAdminHeaders(), // Using admin for now, adjust if user auth differs
+    const response = await fetch(url.toString(), {
+      headers: getAdminHeaders(),
     });
-    // The response schema wraps the array in { message, data: { orders: [...] } }
-    const result =
-      await handleResponse<GetUserOrdersResponse["data"]>(response);
-    return result.data.orders; // Extract the orders array
+    const result = await handleResponse<{ count: number; carts: ApiCart[] }>(
+      response,
+    );
+    return result.data;
   } catch (error) {
-    console.error("Failed to fetch user orders:", error);
+    console.error("Failed to fetch admin carts:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches details for a specific cart by ID (admin view).
+ * Corresponds to: GET /private/carts/{id}
+ * @param cartId - The ID of the cart.
+ */
+export async function adminFetchCartById(cartId: string): Promise<ApiCart> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/carts/${cartId}`, {
+      headers: getAdminHeaders(),
+    });
+    const result = await handleResponse<ApiCart>(response);
+    return result.data;
+  } catch (error) {
+    console.error(`Failed to fetch admin cart ${cartId}:`, error);
+    throw error;
+  }
+}
+
+// --- Users Admin ---
+
+/**
+ * Fetches a list of all users (admin view).
+ * Corresponds to: GET /private/users
+ * @param params - Optional pagination parameters (page, pageSize).
+ */
+export async function adminFetchUsers(
+  params?: ApiAdminListParams,
+): Promise<{ count: number; users: ApiBaseUser[] }> {
+  const url = new URL(`${API_BASE_URL}/private/users`);
+  if (params?.page) url.searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    url.searchParams.append("pageSize", String(params.pageSize));
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: getAdminHeaders(),
+    });
+    const result = await handleResponse<{
+      count: number;
+      users: ApiBaseUser[];
+    }>(response);
+    return result.data;
+  } catch (error) {
+    console.error("Failed to fetch admin users:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches details for a specific user by ID (admin view).
+ * Corresponds to: GET /private/users/{id}
+ * @param userId - The ID of the user.
+ */
+export async function adminFetchUserById(userId: string): Promise<ApiBaseUser> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/users/${userId}`, {
+      headers: getAdminHeaders(),
+    });
+    const result = await handleResponse<ApiBaseUser>(response);
+    return result.data;
+  } catch (error) {
+    console.error(`Failed to fetch admin user ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a user by ID (admin view).
+ * Corresponds to: DELETE /private/users/{id}
+ * @param userId - The ID of the user to delete.
+ */
+export async function adminDeleteUser(
+  userId: string,
+): Promise<ApiAdminSuccessResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/users/${userId}`, {
+      method: "DELETE",
+      headers: getAdminHeaders(),
+    });
+    // Type assertion needed as handleResponse expects a generic T in data
+    return (await handleResponse<never>(response)) as ApiAdminSuccessResponse;
+  } catch (error) {
+    console.error(`Failed to delete admin user ${userId}:`, error);
+    throw error;
+  }
+}
+
+// --- Orders Admin ---
+
+/**
+ * Fetches a list of all orders (admin view).
+ * Corresponds to: GET /private/orders
+ * @param params - Optional pagination and filtering parameters.
+ */
+export async function adminFetchOrders(
+  params?: ApiAdminOrderListParams,
+): Promise<{ count: number; orders: ApiOrder[] }> {
+  const url = new URL(`${API_BASE_URL}/private/orders`);
+  if (params?.page) url.searchParams.append("page", String(params.page));
+  if (params?.pageSize)
+    url.searchParams.append("pageSize", String(params.pageSize));
+  if (params?.userId) url.searchParams.append("userId", params.userId);
+  if (params?.paymentId) url.searchParams.append("paymentId", params.paymentId);
+  if (params?.stripeId) url.searchParams.append("stripeId", params.stripeId);
+  if (params?.shippingTransactionId)
+    url.searchParams.append(
+      "shippingTransactionId",
+      params.shippingTransactionId,
+    );
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: getAdminHeaders(),
+    });
+    const result = await handleResponse<{ count: number; orders: ApiOrder[] }>(
+      response,
+    );
+    return result.data;
+  } catch (error) {
+    console.error("Failed to fetch admin orders:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches details for a specific order by ID (admin view).
+ * Corresponds to: GET /private/orders/{id}
+ * @param orderId - The ID of the order.
+ */
+export async function adminFetchOrderById(orderId: string): Promise<ApiOrder> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/orders/${orderId}`, {
+      headers: getAdminHeaders(),
+    });
+    const result = await handleResponse<ApiOrder>(response);
+    return result.data;
+  } catch (error) {
+    console.error(`Failed to fetch admin order ${orderId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Updates an existing order (admin view). Use with caution.
+ * Corresponds to: PUT /private/orders/{id}
+ * @param orderId - The ID of the order to update.
+ * @param orderData - The data to update.
+ */
+export async function adminUpdateOrder(
+  orderId: string,
+  orderData: ApiUpdateAdminOrderInput,
+): Promise<ApiOrder> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/orders/${orderId}`, {
+      method: "PUT",
+      headers: getAdminHeaders(),
+      body: JSON.stringify(orderData),
+    });
+    const result = await handleResponse<ApiOrder>(response);
+    return result.data;
+  } catch (error) {
+    console.error(`Failed to update admin order ${orderId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Marks an order as cancelled (admin view).
+ * Corresponds to: PUT /private/orders/{id}/cancel
+ * @param orderId - The ID of the order to cancel.
+ */
+export async function adminCancelOrder(orderId: string): Promise<ApiOrder> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/private/orders/${orderId}/cancel`,
+      {
+        method: "PUT", // Swagger uses PUT for this cancel operation
+        headers: getAdminHeaders(),
+      },
+    );
+    const result = await handleResponse<ApiOrder>(response);
+    return result.data;
+  } catch (error) {
+    console.error(`Failed to cancel admin order ${orderId}:`, error);
+    throw error;
+  }
+}
+
+// --- Scheduled Tasks ---
+
+/**
+ * Triggers the task to check and expire checkout sessions.
+ * Corresponds to: POST /private/check-expired-sessions
+ */
+export async function triggerCheckExpiredSessions(): Promise<ApiAdminSuccessResponse> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/private/check-expired-sessions`,
+      {
+        method: "POST",
+        headers: getAdminHeaders(),
+      },
+    );
+    // Type assertion needed as handleResponse expects a generic T in data
+    return (await handleResponse<never>(response)) as ApiAdminSuccessResponse;
+  } catch (error) {
+    console.error("Failed to trigger check expired sessions:", error);
+    throw error;
+  }
+}
+
+// --- Test Data ---
+
+/**
+ * Inserts test data into the system. Requires secret key.
+ * Corresponds to: POST /private/insert-test-data
+ * @param secretData - Object containing the secretKey.
+ */
+export async function insertTestData(
+  secretData: ApiSecretKeyInput,
+): Promise<ApiAdminSuccessResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/insert-test-data`, {
+      method: "POST",
+      headers: getAdminHeaders(), // Assumes admin headers are sufficient, or adjust if X-Admin-Secret-Key is strictly required separately
+      body: JSON.stringify(secretData),
+    });
+    // Type assertion needed as handleResponse expects a generic T in data
+    return (await handleResponse<never>(response)) as ApiAdminSuccessResponse;
+  } catch (error) {
+    console.error("Failed to insert test data:", error);
+    throw error;
+  }
+}
+
+// --- Stock Admin ---
+
+/**
+ * Initializes the R2 stock bucket. Requires secret key.
+ * Corresponds to: POST /private/stock/setup
+ * @param secretData - Object containing the secretKey.
+ */
+export async function setupStockBucket(
+  secretData: ApiSecretKeyInput,
+): Promise<ApiAdminSuccessResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/stock/setup`, {
+      method: "POST",
+      headers: getAdminHeaders(), // Assumes admin headers are sufficient
+      body: JSON.stringify(secretData),
+    });
+    // Type assertion needed as handleResponse expects a generic T in data
+    return (await handleResponse<never>(response)) as ApiAdminSuccessResponse;
+  } catch (error) {
+    console.error("Failed to setup stock bucket:", error);
+    throw error;
+  }
+}
+
+/**
+ * Gets stock for a specific product (Local Dev Only).
+ * Corresponds to: GET /private/stock/{productId}
+ * @param productId - The ID of the product.
+ */
+export async function getProductStock(productId: string): Promise<number> {
+  // WARNING: Add check for non-local environment if needed, although API should return 405
+  try {
+    const response = await fetch(`${API_BASE_URL}/private/stock/${productId}`, {
+      headers: getAdminHeaders(),
+    });
+    // Assuming response data is { message: string, data: number } based on swagger example
+    const result = await handleResponse<{ stock: number }>(response);
+    return result.data.stock;
+  } catch (error) {
+    console.error(`Failed to get stock for product ${productId}:`, error);
     throw error;
   }
 }
